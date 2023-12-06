@@ -15,7 +15,7 @@ client.connect();
 
 const app = express();
 app.set('port', process.env.PORT || 3000);
-app.use(cors());  // Usa cors antes de definir rutas
+app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -150,4 +150,144 @@ app.delete('/eliminar-paciente/:ci', async (req, res) => {
       res.status(500).json({ message: 'Error en el servidor al intentar eliminar al paciente' });
     }
   });
-  
+// Ruta para buscar paciente por número de cédula
+app.get('/buscar-paciente/:ci', async (req, res) => {
+  const ci = req.params.ci;
+
+  try {
+    const result = await client.query('SELECT * FROM registropacientes WHERE CI = $1', [ci]);
+
+    if (result.rows.length > 0) {
+      res.status(200).json(result.rows[0]);
+    } else {
+      res.status(404).json({ message: `No se encontró un paciente con CI ${ci}` });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al buscar paciente por cédula' });
+  }
+});
+// Ruta para guardar nueva cita
+app.post('/guardar-cita', async (req, res) => {
+  const { pacienteCI, fechaHora, nombrepaciente, apellidopaciente } = req.body;
+
+  try {
+    // Verificar si el paciente existe
+    const pacienteResult = await client.query('SELECT * FROM registropacientes WHERE CI = $1', [pacienteCI]);
+
+    if (pacienteResult.rows.length === 0) {
+      return res.status(404).json({ message: `No se encontró un paciente con CI ${pacienteCI}` });
+    }
+
+    // Crear la cita
+    const result = await client.query(
+      'INSERT INTO citas (paciente_ci, fecha_hora, nombre_paciente, apellido_paciente) VALUES ($1, $2, $3, $4) RETURNING id',
+      [pacienteCI, fechaHora,nombrepaciente, apellidopaciente]
+    );
+
+    const citaId = result.rows[0].id;
+    res.status(200).json({ message: 'Cita guardada exitosamente', citaId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al guardar la cita' });
+  }
+});
+
+// Doctores
+// Ruta para el registro de doctores
+app.post('/registro-doctores', async (req, res) => {
+  const doctorData = req.body;
+
+  try {
+    const result = await client.query(
+      'INSERT INTO RegistroDoctores (nombre, apellidos, telefono, especialidad, cedula) VALUES ($1, $2, $3, $4, $5)',
+      [
+        doctorData.nombre,
+        doctorData.apellidos,
+        doctorData.telefono,
+        doctorData.especialidad,
+        doctorData.cedula,
+      ]
+    );
+
+    res.status(200).json({ message: 'Registro de doctor exitoso' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al registrar al doctor' });
+  }
+});
+
+// Ruta para obtener la lista de doctores
+app.get('/lista-doctores', async (req, res) => {
+  try {
+    const result = await client.query('SELECT * FROM RegistroDoctores');
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al obtener la lista de doctores' });
+  }
+});
+
+// Ruta para obtener detalles de un doctor por ID
+app.get('/lista-doctores/:id', async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const result = await client.query('SELECT * FROM RegistroDoctores WHERE iddoctor = $1', [id]);
+    if (result.rows.length > 0) {
+      res.status(200).json(result.rows[0]);
+    } else {
+      res.status(404).json({ message: `No se encontró un doctor con ID ${id}` });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al obtener detalles del doctor' });
+  }
+});
+
+// Ruta para actualizar un doctor
+app.put('/actualizar-doctor/:id', async (req, res) => {
+  const id = req.params.id;
+  const updatedDoctor = req.body;
+
+  try {
+    const result = await client.query(
+      'UPDATE RegistroDoctores SET nombre = $1, apellidos = $2, telefono = $3, especialidad = $4, cedula = $5 WHERE iddoctor = $6',
+      [
+        updatedDoctor.nombre,
+        updatedDoctor.apellidos,
+        updatedDoctor.telefono,
+        updatedDoctor.especialidad,
+        updatedDoctor.cedula,
+        id,
+      ]
+    );
+
+    if (result.rowCount > 0) {
+      res.status(200).json({ message: `Datos del doctor con ID ${id} actualizados exitosamente` });
+    } else {
+      res.status(404).json({ message: `No se encontró un doctor con ID ${id}` });
+    }
+  } catch (error) {
+    console.error('Error al actualizar el doctor en la base de datos:', error);
+    res.status(500).json({ message: 'Error en el servidor al intentar actualizar al doctor' });
+  }
+});
+
+// Ruta para eliminar un doctor
+app.delete('/eliminar-doctor/:id', async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const result = await client.query('DELETE FROM RegistroDoctores WHERE iddoctor = $1', [id]);
+
+    if (result.rowCount > 0) {
+      res.status(200).json({ message: `Doctor con ID ${id} eliminado exitosamente` });
+    } else {
+      res.status(404).json({ message: `No se encontró un doctor con ID ${id}` });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al intentar eliminar al doctor' });
+  }
+});
