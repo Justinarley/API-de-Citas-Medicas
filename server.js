@@ -1,6 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import cors from 'cors';  // Importa cors
+import cors from 'cors'; 
 import pkg from 'pg';
 
 const { Client } = pkg;
@@ -167,9 +167,11 @@ app.get('/buscar-paciente/:ci', async (req, res) => {
     res.status(500).json({ message: 'Error en el servidor al buscar paciente por cédula' });
   }
 });
+
+// Citas
 // Ruta para guardar nueva cita
 app.post('/guardar-cita', async (req, res) => {
-  const { pacienteCI, fechaHora, nombrepaciente, apellidopaciente } = req.body;
+  const { pacienteCI, fechaHora, nombrepaciente, apellidopaciente,  doctornombre, doctorapellidos, doctorcedula, doctoriddoctor, doctorespecialidad } = req.body;
 
   try {
     // Verificar si el paciente existe
@@ -179,10 +181,19 @@ app.post('/guardar-cita', async (req, res) => {
       return res.status(404).json({ message: `No se encontró un paciente con CI ${pacienteCI}` });
     }
 
+    // Obtener la información del doctor
+    const doctorResult = await client.query('SELECT * FROM registrodoctores WHERE iddoctor = $1', [doctoriddoctor]);
+
+    if (doctorResult.rows.length === 0) {
+      return res.status(404).json({ message: `No se encontró un doctor con ID ${doctorId}` });
+    }
+
+    const doctor = doctorResult.rows[0];
+
     // Crear la cita
     const result = await client.query(
-      'INSERT INTO citas (paciente_ci, fecha_hora, nombre_paciente, apellido_paciente) VALUES ($1, $2, $3, $4) RETURNING id',
-      [pacienteCI, fechaHora,nombrepaciente, apellidopaciente]
+      'INSERT INTO citas (paciente_ci, fecha_hora, nombre_paciente, apellido_paciente, nombre_doctor, apellido_doctor, cedula_doctor, id_doctor, especialidad) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+      [pacienteCI, fechaHora, nombrepaciente, apellidopaciente, doctornombre, doctorapellidos, doctorcedula, doctoriddoctor, doctorespecialidad]
     );
 
     const citaId = result.rows[0].id;
@@ -190,6 +201,17 @@ app.post('/guardar-cita', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error en el servidor al guardar la cita' });
+  }
+});
+// Ruta para obtener todas las citas
+app.get('/obtener-citas', async (req, res) => {
+  try {
+    const result = await client.query('SELECT * FROM citas');
+    const citas = result.rows;
+    res.status(200).json(citas);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al obtener las citas' });
   }
 });
 
@@ -291,3 +313,4 @@ app.delete('/eliminar-doctor/:id', async (req, res) => {
     res.status(500).json({ message: 'Error en el servidor al intentar eliminar al doctor' });
   }
 });
+
