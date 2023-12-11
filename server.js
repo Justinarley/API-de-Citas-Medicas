@@ -250,7 +250,22 @@ app.delete('/eliminar-doctor/:id', async (req, res) => {
     res.status(500).json({ message: 'Error en el servidor al intentar eliminar al doctor' });
   }
 });
+app.post('/login-doctor', async (req, res) => {
+  const { nombre, clave } = req.body;
 
+  try {
+    const result = await client.query(
+      'SELECT * FROM logindoc WHERE nombre = $1 AND clave = $2',
+      [nombre, clave]
+    );
 
-
-  
+    if (result.rows.length > 0) {
+      res.status(200).json({ message: 'Inicio de sesión exitoso para doctor' });
+    } else {
+      res.status(401).json({ message: 'Credenciales inválidas para doctor' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al intentar iniciar sesión para doctor' });
+  }
+});
