@@ -313,4 +313,67 @@ app.delete('/eliminar-doctor/:id', async (req, res) => {
     res.status(500).json({ message: 'Error en el servidor al intentar eliminar al doctor' });
   }
 });
+//Sistema del doctor
+app.post('/login-doctor', async (req, res) => {
+  const { nombre, clave } = req.body;
 
+  try {
+    const result = await client.query(
+      'SELECT * FROM logindoc WHERE nombre = $1 AND clave = $2',
+      [nombre, clave]
+    );
+    if (result.rows.length > 0) {
+      res.status(200).json({ message: 'Inicio de sesión exitoso para doctor' });
+    } else {
+      res.status(401).json({ message: 'Credenciales inválidas para doctor' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al intentar iniciar sesión para doctor' });
+  }
+});
+// Ruta para guardar nueva cita
+// Ruta para guardar nueva cita
+app.post('/guardar-obs-doctor', async (req, res) => {
+  const {
+    paciente_ci,
+    fecha_hora,
+    nombre_paciente,
+    apellido_paciente,
+    nombre_doctor,
+    apellido_doctor,
+    cedula_doctor,
+    id_doctor,
+    especialidad,
+    observaciones,
+    receta,
+  } = req.body;
+
+  try {
+    // Verificar si el paciente existe
+    const pacienteResult = await client.query('SELECT * FROM registropacientes WHERE CI = $1', [paciente_ci]);
+
+    if (pacienteResult.rows.length === 0) {
+      return res.status(404).json({ message: `No se encontró un paciente con CI ${paciente_ci}` });
+    }
+
+    // Obtener la información del doctor
+    const doctorResult = await client.query('SELECT * FROM registrodoctores WHERE iddoctor = $1', [id_doctor]);
+
+    if (doctorResult.rows.length === 0) {
+      return res.status(404).json({ message: `No se encontró un doctor con ID ${id_doctor}` });
+    }
+
+    // Crear la cita
+    const result = await client.query(
+      'INSERT INTO c_o_dococtor (paciente_ci, fecha_hora, nombre_paciente, apellido_paciente, nombre_doctor, apellido_doctor, cedula_doctor, id_doctor, especialidad, observaciones, receta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
+      [paciente_ci, fecha_hora, nombre_paciente, apellido_paciente, nombre_doctor, apellido_doctor, cedula_doctor, id_doctor, especialidad, observaciones, receta]
+    );
+
+    const citaId = result.rows[0].id;
+    res.status(200).json({ message: 'Cita guardada exitosamente', citaId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error en el servidor al guardar la cita' });
+  }
+});
